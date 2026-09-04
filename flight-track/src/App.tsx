@@ -1,268 +1,122 @@
+import { useState } from 'react'
+import heroImg from './assets/hero.png'
+import reactLogo from './assets/react.svg'
+import viteLogo from './assets/vite.svg'
 import './App.css'
-import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
-import { useState, useEffect } from 'react';
-//import { FlightInfo } from './FlightInfo';
-import { FlightMatrix } from './FlightMatrix';
-import { TrackingPosi } from './TrackingPosi';
-
-/*interface Aircraft {
-  lat: number;
-  lon: number;
-  callsign?: string;
-  altitude?: number;
-}
-  */
-
-function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lon: number) => void }) {
-  useMapEvents({
-    click: (e: any) => {
-      onMapClick(e.latlng.lat, e.latlng.lng);
-    },
-  });
-  return null;
-}
-
-
 
 function App() {
-  const defaultPosition = [28.038681,-82.529606] as [number, number];
-  const [aircraftPosition, setAircraftPosition] = useState<[number, number]>(defaultPosition);
-  const [altitude, setAltitude] = useState<number | null>(null);
-  const [heading, setHeading] = useState<number | null>(null);
-  const [speed, setSpeed] = useState<number | null>(null);
-  const [callsign, setCallsign] = useState<string>('');
-  const [origin, setOrigin] = useState<string>('');
-  const [destination, setDestination] = useState<string>('');
-  const [airline, setAirline] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [mapLat, setMapLat] = useState<string>('');
-  const [mapLon, setMapLon] = useState<string>('');
-  const [trackingPositions, setTrackingPositions] = useState<any[]>([
-    { id: 0, lat: defaultPosition[0], lon: defaultPosition[1], isMainLocation: true },
-  ]);
-  const [trackingResults, setTrackingResults] = useState<any[]>([]);
-
-  useEffect(() => {
-    const fetchClosestAircraft = async () => {
-      try {
-        const lat = defaultPosition[0];
-        const lon = defaultPosition[1];
-        const distance = 250;
-
-        const url = `http://localhost:8080/api/closest?lat=${lat}&lon=${lon}&distance=${distance}`;
-        console.log('Fetching from:', url);
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          throw new Error(`API error: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log('API Response:', data);
-
-        // The API returns an array with the closest aircraft
-        const aircraft = data.ac[0];
-        if (aircraft.lat && aircraft.lon) {
-          setAircraftPosition([aircraft.lat, aircraft.lon]);
-          setCallsign(aircraft.flight || 'N/A');
-          setAltitude(aircraft.alt_baro || null);
-          setHeading(aircraft.nav_heading || null);
-          setSpeed(aircraft.gs || null);
-          console.log('Aircraft flight', aircraft.flight);
-          console.log('Aircraft position set to:', [aircraft.lat, aircraft.lon]);
-          try {
-            const odResponse = await fetch(`http://localhost:8080/api/odinfo?callsign=${aircraft.flight}`);
-            if (odResponse.ok) {
-              const odData = await odResponse.json();
-              console.log('Aircraft info:', odData);
-              setOrigin(odData.response.flightroute.origin.icao_code || 'Unknown');
-              setDestination(odData.response.flightroute.destination.icao_code || 'Unknown');
-              setAirline(odData.response.flightroute.airline || null);
-              console.log('Origin:', odData.response.flightroute.origin.icao_code, 'Destination:', odData.response.flightroute.destination.icao_code);
-            } else {
-              console.warn('Failed to fetch aircraft details:', odResponse.statusText);
-            }
-          } catch (odError) {
-            console.warn('Error fetching aircraft details:', odError);
-            // App continues to work without aircraft details
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch aircraft');
-        console.error('Error fetching aircraft:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Fetch immediately on mount
-    fetchClosestAircraft();
-
-    // Set up interval to fetch every 5 seconds (5000 ms)
-    const interval = setInterval(fetchClosestAircraft, 50000);
-
-    // Cleanup: clear interval when component unmounts
-    return () => clearInterval(interval);
-  }, []);
-
-  const searchTrackingPositions = async () => {
-    if (trackingPositions.length === 0) {
-      return;
-    }
-
-    // Fetch all positions concurrently so results reflect the same moment in time
-    const results = await Promise.all(
-      trackingPositions.map(async (position) => {
-        try {
-          const lat = position.lat;
-          const lon = position.lon;
-          const distance = 250;
-
-          const url = `http://localhost:8080/api/closest?lat=${lat}&lon=${lon}&distance=${distance}`;
-
-          const response = await fetch(url);
-          if (!response.ok) {
-            console.warn(`Failed to fetch for position [${lat}, ${lon}]`);
-            return null;
-          }
-
-          const data = await response.json();
-          const aircraft = data.ac[0];
-
-          if (!aircraft || !aircraft.lat || !aircraft.lon) {
-            return null;
-          }
-
-          const base = {
-            positionId: position.id,
-            searchPosition: { lat, lon },
-            callsign: aircraft.flight || 'N/A',
-            aircraftLat: aircraft.lat,
-            aircraftLon: aircraft.lon,
-            altitude: aircraft.alt_baro || null,
-            heading: aircraft.nav_heading || null,
-            speed: aircraft.gs || null,
-          };
-
-          try {
-            const odResponse = await fetch(`http://localhost:8080/api/odinfo?callsign=${aircraft.flight}`);
-            if (odResponse.ok) {
-              const odData = await odResponse.json();
-              return {
-                ...base,
-                origin: odData.response.flightroute.origin.icao_code || 'Unknown',
-                destination: odData.response.flightroute.destination.icao_code || 'Unknown',
-                airline: odData.response.flightroute.airline || null,
-              };
-            }
-          } catch (odError) {
-            console.warn(`Failed to fetch details for ${aircraft.flight}`);
-          }
-
-          return { ...base, origin: 'Unknown', destination: 'Unknown' };
-        } catch (err) {
-          console.error(`Error searching position:`, err);
-          return null;
-        }
-      })
-    );
-
-    setTrackingResults(results.filter((r) => r !== null));
-  };
-
-  // Keep each tracked location's closest flight continuously updated
-  useEffect(() => {
-    if (trackingPositions.length === 0) {
-      setTrackingResults([]);
-      return;
-    }
-
-    searchTrackingPositions();
-    const interval = setInterval(searchTrackingPositions, 5000);
-    return () => clearInterval(interval);
-  }, [trackingPositions]);
+  const [count, setCount] = useState(0)
 
   return (
-    <div style={{ display: 'flex', height: '100vh', gap: '10px', padding: '10px 0' }}>
-      {/* Left 1/3 - TrackingPos */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        <TrackingPosi
-          mapLat={mapLat}
-          mapLon={mapLon}
-          setMapLat={setMapLat}
-          setMapLon={setMapLon}
-          trackingPositions={trackingPositions}
-          setTrackingPositions={setTrackingPositions}
-          trackingResults={trackingResults}
-        />
-      </div>
-
-      {/* Right 2/3 - Matrix and Map stacked vertically */}
-      <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {/* FlightMatrix on top */}
-        <div style={{ flex: 0 }}>
-          <FlightMatrix
-            callsign={callsign}
-            origin={origin}
-            destination={destination}
-            altitude={altitude}
-            heading={heading}
-            speed={speed}
-            airline={airline}
-            loading={loading}
-          />
+    <>
+      <section id="center">
+        <div className="hero">
+          <img src={heroImg} className="base" width="170" height="179" alt="" />
+          <img src={reactLogo} className="framework" alt="React logo" />
+          <img src={viteLogo} className="vite" alt="Vite logo" />
         </div>
-
-        {/* Map below, takes remaining space */}
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <MapContainer center={defaultPosition} zoom={13} style={{ height: '100%', width: '100%' }}>
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            />
-
-            <MapClickHandler
-              onMapClick={(lat, lon) => {
-                setMapLat(lat.toFixed(6));
-                setMapLon(lon.toFixed(6));
-              }}
-            />
-            <Marker position={[Number(mapLat), Number(mapLon)]}>
-              <Popup>Clicked Here</Popup>
-            </Marker>
-
-            <Marker position={defaultPosition}>
-              <Popup>Point of intrest</Popup>
-            </Marker>
-
-            {!loading && !error && (
-              <Marker position={aircraftPosition}>
-                <Popup>{callsign}</Popup>
-              </Marker>
-            )}
-
-            {trackingPositions.map((position) => (
-              <Marker
-                key={position.id}
-                position={[position.lat, position.lon]}
-              >
-                <Popup>Tracking Position [{position.lat.toFixed(4)}, {position.lon.toFixed(4)}]</Popup>
-              </Marker>
-            ))}
-
-            {error && (
-              <div style={{ color: 'red', padding: '10px' }}>
-                Error: {error}
-              </div>
-            )}
-          </MapContainer>
+        <div>
+          <h1>Get started</h1>
+          <p>
+            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+          </p>
         </div>
-      </div>
-    </div>
-  );
+        <button
+          type="button"
+          className="counter"
+          onClick={() => setCount((count) => count + 1)}
+        >
+          Count is {count}
+        </button>
+      </section>
+
+      <div className="ticks"></div>
+
+      <section id="next-steps">
+        <div id="docs">
+          <svg className="icon" role="presentation" aria-hidden="true">
+            <use href="/icons.svg#documentation-icon"></use>
+          </svg>
+          <h2>Documentation</h2>
+          <p>Your questions, answered</p>
+          <ul>
+            <li>
+              <a href="https://vite.dev/" target="_blank">
+                <img className="logo" src={viteLogo} alt="" />
+                Explore Vite
+              </a>
+            </li>
+            <li>
+              <a href="https://react.dev/" target="_blank">
+                <img className="button-icon" src={reactLogo} alt="" />
+                Learn more
+              </a>
+            </li>
+          </ul>
+        </div>
+        <div id="social">
+          <svg className="icon" role="presentation" aria-hidden="true">
+            <use href="/icons.svg#social-icon"></use>
+          </svg>
+          <h2>Connect with us</h2>
+          <p>Join the Vite community</p>
+          <ul>
+            <li>
+              <a href="https://github.com/vitejs/vite" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#github-icon"></use>
+                </svg>
+                GitHub
+              </a>
+            </li>
+            <li>
+              <a href="https://chat.vite.dev/" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#discord-icon"></use>
+                </svg>
+                Discord
+              </a>
+            </li>
+            <li>
+              <a href="https://x.com/vite_js" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#x-icon"></use>
+                </svg>
+                X.com
+              </a>
+            </li>
+            <li>
+              <a href="https://bsky.app/profile/vite.dev" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#bluesky-icon"></use>
+                </svg>
+                Bluesky
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <div className="ticks"></div>
+      <section id="spacer"></section>
+    </>
+  )
 }
 
 export default App
