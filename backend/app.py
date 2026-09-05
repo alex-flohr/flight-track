@@ -1,10 +1,13 @@
 import json
+import os
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
+APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
+APP_PORT = int(os.getenv("APP_PORT", "8181"))
 
 
 
@@ -50,4 +53,4 @@ def flights():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8181)
+    app.run(debug=True, host=APP_HOST, port=APP_PORT)

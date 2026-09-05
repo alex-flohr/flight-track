@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import planeIconAsset from './assets/plane-icon.png'
 import './App.css'
 
 const DEFAULT_LAT = 28.156468684830465
@@ -9,18 +10,14 @@ const DEFAULT_LON = -82.50010740795891
 const DEFAULT_DIST = 250
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8181'
 
-const defaultIcon = L.icon({
-  iconRetinaUrl:
-    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-})
-
-L.Marker.prototype.options.icon = defaultIcon
+const createPlaneIcon = (track = 0) =>
+  L.divIcon({
+    className: 'plane-marker',
+    html: `<div class="plane-marker__inner" style="transform: rotate(${track}deg)"><img src="${planeIconAsset}" alt="plane" /></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -14],
+  })
 
 type Plane = {
   hex?: string
@@ -72,7 +69,7 @@ function App() {
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
         />
 
         {planes
@@ -81,7 +78,7 @@ function App() {
             <Marker
               key={plane.hex ?? `${plane.lat}-${plane.lon}`}
               position={[plane.lat as number, plane.lon as number]}
-              icon={defaultIcon}
+              icon={createPlaneIcon(plane.track ?? 0)}
             >
               <Popup>
                 <div>
