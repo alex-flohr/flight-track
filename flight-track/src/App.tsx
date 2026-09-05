@@ -7,6 +7,7 @@ import './App.css'
 const DEFAULT_LAT = 28.156468684830465
 const DEFAULT_LON = -82.50010740795891
 const DEFAULT_DIST = 250
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8181'
 
 const defaultIcon = L.icon({
   iconRetinaUrl:
@@ -38,7 +39,7 @@ function App() {
     const fetchPlanes = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8181/api/flights?lat=${DEFAULT_LAT}&lon=${DEFAULT_LON}&dist=${DEFAULT_DIST}`,
+          `${API_BASE}/api/flights?lat=${DEFAULT_LAT}&lon=${DEFAULT_LON}&dist=${DEFAULT_DIST}`,
         )
 
         if (!response.ok) {
