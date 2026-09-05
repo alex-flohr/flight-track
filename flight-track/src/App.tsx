@@ -122,9 +122,12 @@ function App() {
     }
 
     fetchPlanes()
+    const interval = window.setInterval(() => {
+      fetchPlanes()
+    }, 10000)
 
     return () => {
-      isMounted = false
+      window.clearInterval(interval)
     }
   }, [query])
 
