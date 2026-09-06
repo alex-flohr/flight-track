@@ -62,3 +62,20 @@
   display: block;
   filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.7));
 }
+
+.airport-marker {
+  background: transparent;
+  border: 0;
+}
+
+.airport-marker span {
+  display: block;
+  width: 42px;
+  color: #14d1c4;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 18px;
+  text-align: center;
+  text-shadow: 0 1px 3px #020817, 0 0 4px #020817;
+}

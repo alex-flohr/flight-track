@@ -68,6 +68,24 @@ type Plane = {
   track?: number
 }
 
+type Airport = {
+  icao: string
+  name?: string
+  city?: string
+  country?: string
+  lat: string | number
+  lon: string | number
+}
+
+const airportIcon = (icao: string) =>
+  L.divIcon({
+    className: 'airport-marker',
+    html: `<span>${icao}</span>`,
+    iconSize: [42, 18],
+    iconAnchor: [21, 9],
+    popupAnchor: [0, -9],
+  })
+
 function MapFlightQuery({ onChange }: { onChange: (query: FlightQuery) => void }) {
   useMapEvents({
     moveend: (event) => {
@@ -90,6 +108,7 @@ function MapFlightQuery({ onChange }: { onChange: (query: FlightQuery) => void }
 
 function App() {
   const [planes, setPlanes] = useState<Plane[]>([])
+  const [airports, setAirports] = useState<Airport[]>([])
   const [query, setQuery] = useState<FlightQuery>({
     lat: DEFAULT_LAT,
     lon: DEFAULT_LON,
@@ -131,6 +150,25 @@ function App() {
     }
   }, [query])
 
+  useEffect(() => {
+    const fetchAirports = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/airports`)
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`)
+        }
+
+        const data = await response.json()
+        setAirports(Array.isArray(data.airports) ? data.airports : [])
+      } catch (error) {
+        console.error('Failed to load airport data:', error)
+        setAirports([])
+      }
+    }
+
+    fetchAirports()
+  }, [])
+
   return (
     <div className="app-shell">
       <header className="map-header">Flight Tracker</header>
@@ -147,6 +185,24 @@ function App() {
           attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
           url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
         />
+
+        {airports
+          .filter((airport) => Number.isFinite(Number(airport.lat)) && Number.isFinite(Number(airport.lon)))
+          .map((airport) => (
+            <Marker
+              key={airport.icao}
+              position={[Number(airport.lat), Number(airport.lon)]}
+              icon={airportIcon(airport.icao)}
+            >
+              <Popup>
+                <strong>{airport.icao}</strong>
+                <br />
+                {airport.name ?? 'Unknown airport'}
+                {airport.city && `, ${airport.city}`}
+                {airport.country && `, ${airport.country}`}
+              </Popup>
+            </Marker>
+          ))}
 
         {planes
           .filter((plane) => typeof plane.lat === 'number' && typeof plane.lon === 'number')
